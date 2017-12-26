@@ -68,6 +68,7 @@ bld/
 [Ll]og/
 
 # Visual C++ cache files
+.vs/
 ipch/
 *.aps
 *.ncb
