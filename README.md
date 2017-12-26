@@ -1,8 +1,15 @@
+<img src="https://dbj.systems/wp-content/uploads/2016/09/dbj-tastatura-dbj-i-logo.jpg" />
 
-![alt text](https://github.com/LiveAsynchronousVisualizedArchitecture/simdb/blob/master/numbered_slots_upshot.jpg "A key value store is kind of like this")
+# Shared Mem Key Val store
+
+Bellow is a original Readme from simdb
 
 # SimDB
 #### A high performance, shared memory, lock free, cross platform, single file, no dependencies, C++11 key-value store.
+
+<p>"A key value store is kind of like this"</p>
+<img src="https://github.com/LiveAsynchronousVisualizedArchitecture/simdb/raw/master/numbered_slots_upshot.jpg" />
+
 
 SimDB is part of LAVA (Live Asynchronous Visualized Architecture) which is a series of single file, minimal dependency, C++11 files to create highly concurrent software while the program being written runs live with internal data visualized.
 
