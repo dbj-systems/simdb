@@ -197,19 +197,20 @@ namespace {
     {
       return GetProcAddress(GetModuleHandleA(LibraryName), ProcName);
     }
-    int               win_printf(const char * format, ...)
+
+    int  win_printf(const char * format, ...)
     {
-      char szBuff[1024];
-      int retValue;
+	  char szBuff[1024] = { 0 } ;
       DWORD cbWritten;
       va_list argptr;
           
       va_start( argptr, format );
-      retValue = wvsprintf( szBuff, format, argptr );
+      int retValue = wvsprintfA( szBuff, format, argptr );
       va_end( argptr );
 
-      WriteFile(  GetStdHandle(STD_OUTPUT_HANDLE), szBuff, retValue,
+      int WriteFileResult = WriteFile(  GetStdHandle(STD_OUTPUT_HANDLE), szBuff, retValue,
                   &cbWritten, 0 );
+	  _ASSERTE(WriteFileResult);
 
       return retValue;
     }
@@ -1137,35 +1138,34 @@ public:
   u32        prevIdx(u32 i) const { return std::min(i-1, m_sz-1); }        // clamp to m_sz-1 for the case that hash==0, which will result in an unsigned integer wrap
 
 };
-struct  SharedMem
+struct  SharedMem final
 {
   using    u32  =  uint32_t;
   using    u64  =  uint64_t;
   using   au32  =  std::atomic<u32>;
 
-  static const int alignment = 0;
+  static const int alignment{ 0 };
   
-  // #ifdef _WIN32
-    void*      fileHndl;
-  // #elif defined(__APPLE__) || defined(__MACH__) || defined(__unix__) || defined(__FreeBSD__) // || defined(__linux__) ?    // osx, linux and freebsd
-  //  int        fileHndl;
-  // #endif
+   void*      fileHndl;
 
   void*         hndlPtr;
   void*             ptr;
   u64              size;
   bool            owner;
-  char             path[256];
+
+  static const size_t PATH_SIZE{ BUFSIZ } ;
+  char   path[PATH_SIZE];
 
   void mv(SharedMem&& rval)
   {
-    fileHndl = rval.fileHndl;
-    hndlPtr = rval.hndlPtr;
-    ptr = rval.ptr;
-    size = rval.size;
-    owner = rval.owner;
+    fileHndl	= rval.fileHndl;
+    hndlPtr		= rval.hndlPtr;
+    ptr			= rval.ptr;
+    size		= rval.size;
+    owner		= rval.owner;
 
-    strncpy(path, rval.path, sizeof(path));
+	errno_t  strncpy_result = strncpy_s(path, PATH_SIZE, rval.path, sizeof(path));
+	_ASSERTE(strncpy_result == 0);
 
     rval.clear();
   }
@@ -1181,6 +1181,8 @@ public:
       }
     sm.clear();
   }
+  /*
+  */
   static SharedMem  AllocAnon(const char* name, u64 sizeBytes, bool raw_path=false, simdb_error* error_code=nullptr)
   {
     using namespace std;
@@ -1193,17 +1195,17 @@ public:
     if(error_code){ *error_code = simdb_error::NO_ERRORS; }
 
       sm.fileHndl = nullptr;
-      if(!raw_path){ strcpy(sm.path, "simdb_"); }
+      if(!raw_path){ strcpy_s(sm.path, SharedMem::PATH_SIZE, "simdb_"); }
 
     u64 len = strlen(sm.path) + strlen(name);
     if(len > sizeof(sm.path)-1){
       *error_code = simdb_error::PATH_TOO_LONG;
       return move(sm);
-    }else{ strcat(sm.path, name); }
+    }else{ strcat_s(sm.path, SharedMem::PATH_SIZE,  name); }
 
       if(raw_path)
       {
-        sm.fileHndl = CreateFile(
+        sm.fileHndl = CreateFileA(
           sm.path, 
           GENERIC_READ|GENERIC_WRITE,   //FILE_MAP_READ|FILE_MAP_WRITE,  // apparently FILE_MAP constants have no effects here
           FILE_SHARE_READ|FILE_SHARE_WRITE, 
@@ -1213,11 +1215,11 @@ public:
           NULL                          //_In_opt_ HANDLE hTemplateFile
         );
       }
-      sm.fileHndl = OpenFileMapping(FILE_MAP_READ | FILE_MAP_WRITE, FALSE, sm.path);
+      sm.fileHndl = OpenFileMappingA(FILE_MAP_READ | FILE_MAP_WRITE, FALSE, sm.path);
 
       if(sm.fileHndl==NULL)
       {
-        sm.fileHndl = CreateFileMapping(  // todo: simplify and call this right away, it will open the section if it already exists
+        sm.fileHndl = CreateFileMappingA(  // todo: simplify and call this right away, it will open the section if it already exists
           INVALID_HANDLE_VALUE,
           NULL,
           PAGE_READWRITE,
@@ -1249,8 +1251,8 @@ public:
       }
        
   
-    u64      addr = (u64)(sm.hndlPtr);
-    u64 alignAddr = addr;
+    u64     addr = (u64)(sm.hndlPtr);
+    u64		alignAddr = addr;
     //if(alignment!=0){ alignAddr = addr + ((alignment-addr%alignment)%alignment); }          // why was the second modulo needed?
     sm.ptr        = (void*)(alignAddr);
 
@@ -1283,7 +1285,10 @@ public:
     return ptr;
   }
 };
-class       simdb
+/*
+---------------------------------------------------------------------------------------
+*/
+class  simdb  final
 {
 public:
   using      u8  =  uint8_t;
@@ -1380,9 +1385,11 @@ public:
       s_blockSize->store(blockSize);
       s_cnt->store(1);
     }else{
-      #if defined(_WIN32)                                          // do we need to spin until ready on windows? unix has file locks built in to the system calls
-        //while(s_flags->load()<1){continue;}
-      #endif
+		// do we need to spin until ready on windows? 
+		// unix has file locks built in to the system calls
+		// #if defined(_WIN32)  
+        // while(s_flags->load()<1){continue;}
+		// #endif
       s_cnt->fetch_add(1);
       m_mem.size = MemSize(s_blockSize->load(), s_blockCount->load());
     }
@@ -1405,6 +1412,7 @@ public:
 
     if(isOwner()){ s_flags->store(1); }
   }
+
   ~simdb(){ close(); }
 
   simdb(simdb&& rval){ mv(std::move(rval)); }
@@ -1594,9 +1602,10 @@ public:
 };
 
 /* 
-  non Windows simdb_listDBs() has been removed
+  only Windows simdb_listDBs()  
 */
-  auto simdb_listDBs(simdb_error* error_code=nullptr) -> std::vector<std::string>
+  auto simdb_listDBs(simdb_error* error_code=nullptr) 
+	  -> std::vector<std::string>
   {
     using namespace std;
 
@@ -1609,13 +1618,20 @@ public:
     vector<string> ret;
 
     if(!NtOpenDirectoryObject){  
-      NtOpenDirectoryObject  = (NTOPENDIRECTORYOBJECT)GetLibraryProcAddress( ("ntdll.dll"), "NtOpenDirectoryObject");
+      NtOpenDirectoryObject  = (NTOPENDIRECTORYOBJECT)GetLibraryProcAddress( 
+		  (PSTR)("ntdll.dll"), 
+		  (PSTR)("NtOpenDirectoryObject")
+	  );
     }
     if(!NtQueryDirectoryObject){ 
-      NtQueryDirectoryObject = (NTQUERYDIRECTORYOBJECT)GetLibraryProcAddress(("ntdll.dll"), "NtQueryDirectoryObject");
+      NtQueryDirectoryObject = (NTQUERYDIRECTORYOBJECT)GetLibraryProcAddress(
+		  (PSTR)("ntdll.dll"),
+		  (PSTR)"NtQueryDirectoryObject");
     }
     if(!NtOpenFile){ 
-      NtOpenFile = (NTOPENFILE)GetLibraryProcAddress(("ntdll.dll"), "NtOpenFile");
+      NtOpenFile = (NTOPENFILE)GetLibraryProcAddress(
+		  (PSTR)("ntdll.dll"), 
+		  (PSTR)"NtOpenFile");
     }
 
     HANDLE     hDir = NULL;
@@ -1664,8 +1680,9 @@ public:
       if( strncmp( (char*)info->name.Buffer, (char*)wPrefix, pfxSz)!=0 ){  continue; }
 
       wstring  wname = wstring( ((WCHAR*)info->name.Buffer)+6 );
-      wstring_convert<codecvt_utf8<wchar_t>> cnvrtr;
-      string    name = cnvrtr.to_bytes(wname);
+      // wstring_convert<codecvt_utf8<wchar_t>> cnvrtr;
+	  // cnvrtr.to_bytes(wname);
+	  string    name = std::string( wname.begin(), wname.end()); 
 
       ret.push_back(name);
     }while(status!=STATUS_NO_MORE_ENTRIES);
