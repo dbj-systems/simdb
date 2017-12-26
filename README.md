@@ -1,6 +1,8 @@
 <img src="https://dbj.systems/wp-content/uploads/2016/09/dbj-tastatura-dbj-i-logo.jpg" />
 
-# Shared Mem Key Val store
+## Shared Mem Key Val store
+
+## DBJ.Systems version of SimDB is WINDOWS only
 
 Bellow is a original Readme from simdb
 
