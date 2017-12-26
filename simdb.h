@@ -1,57 +1,63 @@
 #pragma once
-#pragma warning(push, 0)
+/*
+ SIMDBJ == DBJ.Systems WIN only version of SIMDB
+*/
+#include <yvals.h>
 
-#if  !defined( _MSC_VER ) || !defined( _WIN32 )
+#if  !defined( _WIN32 )
 #error Sorry DBJ.Systems version of SIMDB is WINDOWS only
 #endif
 
+#if  !defined( _MSVC_LANG )
+#error Sorry DBJ.Systems version of SIMDB requires MSVC
+#endif
 
-// turn asserts on an off - not sure of the best way to handle this with gcc and clang yet
-#ifdef _MSC_VER
-  #if !defined(_DEBUG)
-    #define NDEBUG
-  #endif
+#if !defined( _HAS_CXX17 )
+#error "Sorry DBJ.Systems version of SIMDB requires C++17 or better"
+#endif
+// 
+#if !defined(_DEBUG)
+   #define NDEBUG
 #endif
 
 #if !defined(SECTION)
   #define       SECTION(_msvc_only_collapses_macros_with_arguments, ...)
 #endif
 
-// platform specific includes - mostly for shared memory mapping and auxillary functions like open, close and the windows equivilents
-  #include <locale>
-  #include <codecvt>
+#if !defined(_CRT_SECURE_NO_WARNINGS)
+#define _CRT_SECURE_NO_WARNINGS
+#endif
 
-  #include <tchar.h>
-  #define NOMINMAX
-  #define WIN32_LEAN_AND_MEAN
-  #include <windows.h>
-  #include <strsafe.h>
+#if !defined(_SCL_SECURE_NO_WARNINGS)
+#define _SCL_SECURE_NO_WARNINGS
+#endif
 
- #ifdef _MSC_VER
-    #if !defined(_CRT_SECURE_NO_WARNINGS)
-      #define _CRT_SECURE_NO_WARNINGS
-    #endif
-
-    #if !defined(_SCL_SECURE_NO_WARNINGS)
-      #define _SCL_SECURE_NO_WARNINGS
-    #endif
-  #endif
-/* 
-  if defined(__APPLE__) || defined(__MACH__) || defined(__unix__) || defined(__FreeBSD__) || defined(__linux__)
- has been removed in DBJ.Systems version 
-*/
-
-#include <cstdint>
-#include <cstring>
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#define STRICT
+#include <windows.h>
+#include <crtdbg.h>
 #include <atomic>
-#include <mutex>
-#include <memory>
 #include <vector>
 #include <string>
-#include <unordered_set>
 #include <set>
 #include <algorithm>
+/* 
+  DBJ: inlcudes found not to be needed
+#include <locale>
+#include <codecvt>
+#include <tchar.h>
+#include <strsafe.h>
+#include <cstdint>
+#include <cstring>
+#include <mutex>
+#include <memory>
+#include <unordered_set>
 #include <cassert>
+ */
+
+
+namespace simdbj {
 
 // platform specific type definitions
 // #ifdef _WIN32                         
@@ -73,11 +79,13 @@ namespace {
     void operator()(){}
   };
 
-  inline uint64_t fnv_64a_buf(void const *const buf, uint64_t len)                              // sbassett - I know basically nothing about hash functions and there is likely a better one out there 
+  // sbassett - I know basically nothing about hash functions and there is 
+  // likely a better one out there 
+  inline uint64_t fnv_64a_buf(void const *const buf, uint64_t len)
   {
     uint64_t hval = 0xCBF29CE484222325;
     uint8_t*   bp = (uint8_t*)buf;	             // start of buffer 
-    uint8_t*   be = bp + len;		                 // beyond end of buffer 
+    uint8_t*   be = bp + len;	                 // beyond end of buffer 
     while(bp < be){                              // FNV-1a hash each octet of the buffer
       hval ^= (uint64_t)*bp++;                   // xor the bottom with the current octet */
       hval += (hval << 1) + (hval << 4) + (hval << 5) +
@@ -88,13 +96,7 @@ namespace {
   
   inline void prefetch1(char const* const p)
   {
-    #ifdef _MSC_VER                              // if msvc or intel compilers
       _mm_prefetch(p, _MM_HINT_T1);
-    #elif defined(__GNUC__) || defined(__clang__)
-      __builtin_prefetch(p);
-    #else
-
-    #endif
   }
 
   
@@ -107,6 +109,7 @@ namespace {
           _Field_size_bytes_part_(MaximumLength, Length) PWCH   Buffer;
       #endif // MIDL_PASS
       } UNICODE_STRING;
+
     typedef UNICODE_STRING *PUNICODE_STRING;
 
     typedef struct _OBJECT_ATTRIBUTES {
@@ -117,7 +120,8 @@ namespace {
         PVOID SecurityDescriptor;        // Points to type SECURITY_DESCRIPTOR
         PVOID SecurityQualityOfService;  // Points to type SECURITY_QUALITY_OF_SERVICE
     } OBJECT_ATTRIBUTES;
-    typedef OBJECT_ATTRIBUTES *POBJECT_ATTRIBUTES;
+    
+	typedef OBJECT_ATTRIBUTES *POBJECT_ATTRIBUTES;
 
     typedef long LONG;
     typedef LONG NTSTATUS;
@@ -214,11 +218,7 @@ namespace {
 
       return retValue;
     }
-}
-
-// #ifdef _WIN32
-  #pragma warning(pop)
-// #endif
+} // anon space
 
 enum class simdb_error { 
   NO_ERRORS=2, 
@@ -233,7 +233,7 @@ enum class simdb_error {
 };
 
 template<class T> 
-class    lava_vec
+class    lava_vec final
 {
 public:
   using u64   =   uint64_t;
@@ -241,10 +241,16 @@ public:
 private:
   void* p;
 
-  void  set_sizeBytes(u64 sb){ ((u64*)p)[-1] = sb; }                                // an offset of -2 should be the first 8 bytes, which store the size in bytes of the whole memory span of this lava_vec
+  /* an offset of -2 should be the first 8 bytes, which store the size in bytes 
+  of the whole memory span of this lava_vec */
+  void  set_sizeBytes(u64 sb){ ((u64*)p)[-1] = sb; }
 
 public:
-  static u64 sizeBytes(u64 count)                                                   // sizeBytes is meant to take the same arguments as a constructor and return the total number of bytes to hold the entire stucture given those arguments 
+	/* 
+	sizeBytes is meant to take the same arguments as a constructor 
+	and return the total number of bytes to hold the entire stucture given those arguments 
+	*/
+	static u64 sizeBytes(u64 count)
   {
     return sizeof(u64) + count*sizeof(T);
   }
@@ -267,19 +273,25 @@ public:
   T& operator[](u64 i){ return data()[i]; }
 
   T*        data(){ return (T*)p; }
-  u64  sizeBytes() const { return ((u64*)p)[0]; }                                    // first 8 bytes should be the total size of the buffer in bytes
+  // first 8 bytes should be the total size of the buffer in bytes
+  u64  sizeBytes() const { return ((u64*)p)[0]; }
   auto      addr() const -> void*
   {
     return p;
   }
 };
-class     CncrLst
+/*
+-----------------------------------------------------------------------------------------------
+Internally this is an array of indices that makes a linked list
+Externally indices can be gotten atomically and given back atomically
+This is used to get free indices one at a time, and give back in-use indices one at a time
+Uses the first 8 bytes that would normally store sizeBytes as the 64 bits of memory for the Head structure
+Aligns the head on a 64 bytes boundary with the rest of the memory on a separate 64 byte boudary.
+This puts them on separate cache lines which should eliminate false sharing between cores
+when atomically accessing the Head union (which will happen quite a bit)
+*/
+class CncrLst final
 {
-// Internally this is an array of indices that makes a linked list
-// Externally indices can be gotten atomically and given back atomically
-// | This is used to get free indices one at a time, and give back in-use indices one at a time
-// Uses the first 8 bytes that would normally store sizeBytes as the 64 bits of memory for the Head structure
-// Aligns the head on a 64 bytes boundary with the rest of the memory on a separate 64 byte boudary. This puts them on separate cache lines which should eliminate false sharing between cores when atomicallyaccessing the Head union (which will happen quite a bit) 
 public:
   using     u32  =  uint32_t;
   using     u64  =  uint64_t;
@@ -288,7 +300,7 @@ public:
 
   union Head
   {
-    struct { u32 ver; u32 idx; };                           // ver is version, idx is index
+    struct { u32 ver; u32 idx; }; // ver is version, idx is index
     u64 asInt;
   };
   
@@ -308,7 +320,7 @@ public:
   {                                                          // separate out initialization and let it be done explicitly in the simdb constructor?    
     u64   addrRem  =  (u64)addr % 64;
     u64 alignAddr  =  (u64)addr + (64-addrRem);
-    assert( alignAddr % 64 == 0 );
+    _ASSERTE( alignAddr % 64 == 0 );
     s_h = (au64*)alignAddr;
 
     u32* listAddr = (u32*)((u64)alignAddr+64);
@@ -380,7 +392,11 @@ public:
   }
   auto       head() -> Head* { return (Head*)s_h; }
 };
-class     CncrStr                                                          // CncrStr is Concurrent Store 
+/*
+-----------------------------------------------------------------------------------------------------
+CncrStr is Concurrent Store
+*/
+class     CncrStr final
 {
 public:
   using      u8  =  uint8_t;
@@ -572,7 +588,7 @@ public:
       for(u32 i=0; i<blockCount; ++i){ s_bls[i] = BlkLst(); }
       s_version->store(1);                                                                                   // todo: what is this version for if CncrLst already has a version?
     }
-    assert(blockSize > sizeof(i32));
+    _ASSERTE(blockSize > sizeof(i32));
   }
 
   auto        alloc(u32    size, u32 klen, u32 hash, BlkCnt* out_blocks=nullptr) -> VerIdx    
@@ -747,6 +763,7 @@ public:
 
     return len;                                           // only one return after the top to make sure readers can be decremented - maybe it should be wrapped in a struct with a destructor    
   }
+
   Match   memcmpBlk(u32  blkIdx, u32 version, void const *const buf1, void const *const buf2, u32 len) const    // todo: eventually take out the inc and dec readers and only do them when actually reading and dealing with the whole chain of blocks 
   { // todo: take out inc and dec here, since the whole block list should be read and protected by start of the list
     if(incReaders(blkIdx, version).len==0){ return MATCH_REMOVED; }
@@ -758,6 +775,7 @@ public:
 
     return MATCH_FALSE;
   }
+
   Match     compare(u32  blkIdx, u32 version, void const *const buf, u32 len, u32 hash) const
   {
     using namespace std;
@@ -767,10 +785,10 @@ public:
     if(blklstHsh!=hash){ return MATCH_FALSE; }                         // vast majority of calls should end here
 
     u32   curidx  =  blkIdx;
-    VerIdx   nxt  =  nxtBlock(curidx);                              if(nxt.version!=version){ return MATCH_FALSE; }
+    VerIdx   nxt  =  nxtBlock(curidx);  if(nxt.version!=version){ return MATCH_FALSE; }
     u32    blksz  =  (u32)blockFreeSize();
     u8*   curbuf  =  (u8*)buf;
-    auto    klen  =  s_bls[blkIdx].klen;                            if(klen!=len){ return MATCH_FALSE; }
+    auto    klen  =  s_bls[blkIdx].klen; if(klen!=len){ return MATCH_FALSE; }
     auto  curlen  =  len;
     while(true)
     {
@@ -802,7 +820,10 @@ public:
 
   friend class CncrHsh;
 };
-class     CncrHsh
+/*
+-------------------------------------------------------------------------------
+*/
+class CncrHsh final
 {
 public:
   using      u8  =   uint8_t;
@@ -825,6 +846,7 @@ public:
   {
     return lava_vec<VerIdx>::sizeBytes(size) + 16;           // extra 16 bytes for 128 bit alignment padding 
   }
+
   static u32        nextPowerOf2(u32  v)
   {
     v--;
@@ -935,7 +957,7 @@ public:
     u64     paddr  =  (u64)addr;                // paddr is padded address
     u8        rem  =  16 - paddr%16;
     u8       ofst  =  16 - rem;
-    void* algnMem  =  (void*)(paddr+ofst);      assert( ((u64)algnMem) % 16 == 0 ); 
+    void* algnMem  =  (void*)(paddr+ofst);      _ASSERTE( ((u64)algnMem) % 16 == 0 ); 
 
     new (&s_vis) VerIdxs(algnMem, m_sz);        // initialize the lava_vec of VerIdx structs with the 128 bit aligned address
     
@@ -1099,7 +1121,7 @@ public:
   }
   bool           put(const void *const key, u32 klen, const void *const val, u32 vlen, u32* out_startBlock=nullptr) 
   {
-    assert(klen>0);
+    _ASSERTE(klen>0);
 
     u32     hash = CncrHsh::HashBytes(key, klen);
     VerIdx lstVi = m_csp->alloc(klen+vlen, klen, hash);                            // lstVi is block list versioned index
@@ -1126,7 +1148,7 @@ public:
   }
   VerIdx        load(u32 i)                    const
   {    
-    assert(i < m_sz);
+    _ASSERTE(i < m_sz);
 
     au64* avi = (au64*)(s_vis.data()+i);                                           // avi is atomic versioned index
     u64   cur = swp32(avi->load());                                                // need because of endianess? // atomic_load<u64>( (au64*)(m_vis.data()+i) );              // Load the key that was there.
@@ -1387,15 +1409,15 @@ public:
     }else{
 		// do we need to spin until ready on windows? 
 		// unix has file locks built in to the system calls
-		// #if defined(_WIN32)  
+		// 
         // while(s_flags->load()<1){continue;}
-		// #endif
+		// 
       s_cnt->fetch_add(1);
       m_mem.size = MemSize(s_blockSize->load(), s_blockCount->load());
     }
 
     //auto cncrHashSize = CncrHsh::sizeBytes(blockCount);
-    uint64_t cncrHashSize = CncrHsh::sizeBytes(s_blockCount->load());
+    auto /*uint64_t*/ cncrHashSize = CncrHsh::sizeBytes(s_blockCount->load());
     new (&s_cs) CncrStr( ((u8*)m_mem.data())+cncrHashSize+OffsetBytes(), 
                                  (u32)s_blockSize->load(), 
                                  (u32)s_blockCount->load(), 
@@ -1449,7 +1471,7 @@ public:
   }
   bool         put(char const* const key, const void *const val, u32 vlen, u32* out_startBlock=nullptr)
   {
-    assert(strlen(key)>0);
+    _ASSERTE(strlen(key)>0);
     return put(key, (u32)strlen(key), val, vlen, out_startBlock);
   }
 
@@ -1689,6 +1711,7 @@ public:
     
     return ret;
   }
+} // eof namespace setdbj 
 
 #pragma region license and manual 
 

@@ -26,7 +26,7 @@ namespace {
 	using  au64 = std::atomic<u64>;
 	using  au32 = std::atomic<u32>;
 
-	void printkeys(simdb const& db)
+	void printkeys(simdbj::simdb const& db)
 	{
 		auto keys = db.getKeyStrs();
 		for (auto key : keys) {
@@ -35,10 +35,64 @@ namespace {
 	}
 }
 
+/*
+---------------------------------------------------------------------------------------------
+*/
+int main()
+{
+  // using namespace std;
+  //dbj::print("size of simdb on the stack: ", sizeof(simdb));
+
+	simdbj::simdb db("test", 2<<10, 2<<12);
+
+  std::string numkey[] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"};
+  std::string  label[] = {"zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven"};
+  std::string       wat  =       "wat";
+  std::string       wut  =       "wut";
+  std::string  skidoosh  =  "skidoosh";
+  std::string    kablam  =    "kablam";
+  std::string   longkey  =  "this is a super long key as a test";
+  std::string   longval  =  "value that is really long as a really long value test";
+
+  std::string  lf = "lock free";
+  std::string way = "is the way to be";
+  
+  i64    len = db.len( lf.data(), (u32)lf.length() );
+  std::string way2(len,'\0');
+  db.get( lf.data(), (u32)lf.length(), (void*)way.data(), (u32)way.length() );
+
+  dbj::print("\n",way,"\n");
+
+  if( db.isOwner() )
+  {
+    dbj::print("\nput: ", db.put("lock free", "is the way to be") );
+    dbj::print("\nput: ", db.put(wat, skidoosh) );
+    //db.del("wat");
+    dbj::print("\nput: ", db.put( wut.data(),   (u32)wut.length(),    kablam.data(),   (u32)kablam.length())   ); 
+    //db.del("wut");
+    dbj::print("\nput: ", db.put(kablam, skidoosh) ); 
+	//dbj::print("put: ", db.put( kablam.data(),(u32)kablam.length(), skidoosh.data(), (u32)skidoosh.length()) ); 
+    //db.del("kablam");
+  
+    dbj::print("\nput: ", db.put(wat, skidoosh) );
+  }
+    dbj::print("\n\n the Keys\n\n");
+	printkeys(db);
+
+  auto dbs = simdbj::simdb_listDBs();
+		dbj::print("\n\n db list: ", dbs );
+
+		dbj::log.flush();
+  return 0;
+}
+
+ #pragma warning(pop)
+
+
 #if 0
 namespace {
 
-//#include <SIM/SIM_GeneralTemplateUtil.hpp>
+	//#include <SIM/SIM_GeneralTemplateUtil.hpp>
 
 #ifndef COMBINE
 #define COMBINE2(a,b) a ## b
@@ -51,7 +105,7 @@ namespace {
 
 #ifndef TO
 #define TO(to, var) for(std::remove_const<decltype(to)>::type var = 0; var < to; ++var)
-//#define TO(to, var) for(auto var = 0ull; var < (unsigned long long)to; ++var)
+	//#define TO(to, var) for(auto var = 0ull; var < (unsigned long long)to; ++var)
 #endif
 
 	u32   intHash(u32    h)
@@ -256,55 +310,3 @@ namespace {
 
 } // nspace
 #endif
-/*
----------------------------------------------------------------------------------------------
-*/
-int main()
-{
-  // using namespace std;
-  //dbj::print("size of simdb on the stack: ", sizeof(simdb));
-
-  simdb db("test", 2<<10, 2<<12);
-
-  std::string numkey[] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"};
-  std::string  label[] = {"zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven"};
-  std::string       wat  =       "wat";
-  std::string       wut  =       "wut";
-  std::string  skidoosh  =  "skidoosh";
-  std::string    kablam  =    "kablam";
-  std::string   longkey  =  "this is a super long key as a test";
-  std::string   longval  =  "value that is really long as a really long value test";
-
-  std::string  lf = "lock free";
-  std::string way = "is the way to be";
-  
-  i64    len = db.len( lf.data(), (u32)lf.length() );
-  std::string way2(len,'\0');
-  db.get( lf.data(), (u32)lf.length(), (void*)way.data(), (u32)way.length() );
-
-  dbj::print("\n",way,"\n");
-
-  if( db.isOwner() )
-  {
-    dbj::print("\nput: ", db.put("lock free", "is the way to be") );
-    dbj::print("\nput: ", db.put(wat, skidoosh) );
-    //db.del("wat");
-    dbj::print("\nput: ", db.put( wut.data(),   (u32)wut.length(),    kablam.data(),   (u32)kablam.length())   ); 
-    //db.del("wut");
-    dbj::print("\nput: ", db.put(kablam, skidoosh) ); //dbj::print("put: ", db.put( kablam.data(),(u32)kablam.length(), skidoosh.data(), (u32)skidoosh.length()) ); 
-    //db.del("kablam");
-  
-    dbj::print("\nput: ", db.put(wat, skidoosh) );
-  }
-    dbj::print("\n\n the Keys\n\n");
-	printkeys(db);
-
-  auto dbs = simdb_listDBs();
-		dbj::print("\n\n db list: ", dbs );
-
-		dbj::log.flush();
-  return 0;
-}
-
- #pragma warning(pop)
-
