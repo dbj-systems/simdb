@@ -27,26 +27,27 @@
 #if !defined(_CRT_SECURE_NO_WARNINGS)
 #define _CRT_SECURE_NO_WARNINGS
 #endif
-
+/*
+dbj removed 27DEC17
 #if !defined(_SCL_SECURE_NO_WARNINGS)
 #define _SCL_SECURE_NO_WARNINGS
 #endif
-
+*/
 /*
  using powerfull lightweight dbj++ headers only lib
 */
 #define DBJ_WIN
 #include <dbj++.h>
+#include <atomic>
+#include <set>
 /*
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #define STRICT
 #include <windows.h>
 #include <crtdbg.h>
-#include <atomic>
 #include <vector>
 #include <string>
-#include <set>
 #include <algorithm>
 */
 /* 
@@ -76,8 +77,7 @@ namespace simdbj {
   DBJ formed constand expressions
   */
   static constexpr char simdb_filename_prefix[]{ "simdb_" };
-
-
+  
 namespace {
   enum Match { MATCH_FALSE=0, MATCH_TRUE=1, MATCH_REMOVED=-1  };
 
@@ -1260,12 +1260,17 @@ public:
           FILE_ATTRIBUTE_NORMAL,        //_In_ DWORD dwFlagsAndAttributes
           NULL                          //_In_opt_ HANDLE hTemplateFile
         );
+
+		_ASSERTE(INVALID_HANDLE_VALUE != shared_mem_retval.fileHndl);
       }
+
       shared_mem_retval.fileHndl = OpenFileMappingA(FILE_MAP_READ | FILE_MAP_WRITE, FALSE, shared_mem_retval.path);
+	  _ASSERTE(INVALID_HANDLE_VALUE != shared_mem_retval.fileHndl);
 
       if(shared_mem_retval.fileHndl==NULL)
       {
-        shared_mem_retval.fileHndl = CreateFileMappingA(  // todo: simplify and call this right away, it will open the section if it already exists
+        shared_mem_retval.fileHndl = CreateFileMappingA(  
+// todo: simplify and call this right away, it will open the section if it already exists
           INVALID_HANDLE_VALUE,
           NULL,
           PAGE_READWRITE,
@@ -1274,39 +1279,41 @@ public:
           shared_mem_retval.path);
         if(shared_mem_retval.fileHndl!=NULL){ shared_mem_retval.owner=true; }
       }
-      
-      if(shared_mem_retval.fileHndl != nullptr){
+
+      if(shared_mem_retval.fileHndl != nullptr)
+	  {
         shared_mem_retval.hndlPtr = MapViewOfFile(shared_mem_retval.fileHndl,   // handle to map object
           FILE_MAP_READ | FILE_MAP_WRITE, // FILE_MAP_ALL_ACCESS,   // read/write permission
           0,
           0,
           0);
-      }
 
-      if(shared_mem_retval.hndlPtr==nullptr){ 
-        int      err = (int)GetLastError();
-        LPSTR msgBuf = nullptr;
-        /*size_t msgSz =*/ FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                                     NULL, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&msgBuf, 0, NULL);
-        win_printf("simdb initialization error: %d - %s", err, msgBuf);
-        LocalFree(msgBuf);
+		dbj::trace("\nCreated and Opened File Mapping for path %s", shared_mem_retval.path);
+	  }
+	  else
+      // if(shared_mem_retval.hndlPtr==nullptr)
+	  { 
+		  auto err_msg_ = dbj::win32::getLastErrorMessage("SIMDBJ initialization error:" ); 
+		  dbj::trace("%s", err_msg_);
+		  dbj::print("\n", err_msg_);
 
-        CloseHandle(shared_mem_retval.fileHndl); 
+		  auto close_handle_result = CloseHandle(shared_mem_retval.fileHndl);
+		  _ASSERTE(close_handle_result);
+
         shared_mem_retval.clear(); 
         return std::move(shared_mem_retval); 
       }
-       
-  
     u64     addr = (u64)(shared_mem_retval.hndlPtr);
     u64		alignAddr = addr;
-    //if(alignment!=0){ alignAddr = addr + ((alignment-addr%alignment)%alignment); }          // why was the second modulo needed?
     shared_mem_retval.ptr        = (void*)(alignAddr);
 
-    return move(shared_mem_retval);
+    return std::move(shared_mem_retval);
   }
 
   SharedMem(){}
   SharedMem(SharedMem&)       = delete;
+  // DBJ: this bellow is wrong modern C++
+  // std::swap is to be used
   SharedMem(SharedMem&& rval){ mv(std::move(rval)); }
   SharedMem& operator=(SharedMem&& rval){ mv(std::move(rval)); return *this; }
   ~SharedMem()
@@ -1326,7 +1333,8 @@ public:
     size      =  0;
     owner     =  false;
   }
-  auto  data() -> void*
+  // dbj added the 'const'
+  auto  data() const -> void*
   {
     return ptr;
   }
@@ -1614,7 +1622,7 @@ public:
   {
     using namespace std;
     
-    set<VerStr> keys; VerStr nxt; u64 searched=0, srchCnt=0;
+    std::set<VerStr> keys; VerStr nxt; u64 searched=0, srchCnt=0;
     while(srchCnt < m_blkCnt)
     {
       nxt = nxtKey(&searched);

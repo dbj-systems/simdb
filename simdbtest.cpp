@@ -1,7 +1,7 @@
 
 #include "simdb.h"
 
-#include "../dbj_cli/dbj_lib/dbj_rt.h"
+// #include "../dbj_cli/dbj_lib/dbj_rt.h"
 
 #include <stdint.h>
 #include <atomic>
@@ -47,8 +47,12 @@ db.put(???)
 db.len( ??? )
 
 */
-int main()
+int main(int argc, char* argv[])
 {
+	using namespace dbj::win;
+	con::switch_console(con::CODE::page_1252);
+	con::setfont(L"Lucida Console");
+
   //dbj::print("size of simdb on the stack: ", sizeof(simdb));
   simdbj::simdb db("test", 2<<10, 2<<12);
 
@@ -76,7 +80,6 @@ int main()
 		db.flush();
 		db.close();
 
-		dbj::log.flush();
   return 0;
 }
 
