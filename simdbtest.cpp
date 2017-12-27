@@ -2,7 +2,7 @@
 #include "simdb.h"
 
 // #include "../dbj_cli/dbj_lib/dbj_rt.h"
-
+/*
 #include <stdint.h>
 #include <atomic>
 #include <mutex>
@@ -13,6 +13,33 @@
 #include <iostream>
 #include <sstream>
 #include <thread>
+*/
+namespace conversions {
+	/*
+	template<typename T>
+	auto to_string(const std::basic_string<T>& str) {
+		return std::string(str.begin(), str.end()).data();
+	}
+
+	auto to_string(const std::string & str) {
+		return str.data() ;
+	}
+	*/
+	auto to_string = [](const auto & str) {
+		return std::string( std::begin(str), std::end( str));
+	};
+
+
+	void test()
+	{
+		dbj::print(
+			to_string( "\nasci string"),
+			to_string(L"\nwide string"),
+			to_string(u"\nu16  string"),
+			to_string(U"\nu32  string")
+		) ;
+	}
+}
 
 namespace {
 	using    u8 = uint8_t;
@@ -53,25 +80,25 @@ int main(int argc, char* argv[])
 	con::switch_console(con::CODE::page_1252);
 	con::setfont(L"Lucida Console");
 
+	conversions::test();
+
   //dbj::print("size of simdb on the stack: ", sizeof(simdb));
   simdbj::simdb db("test", 2<<10, 2<<12);
 
   if (db.isOwner())
   {
-	  dbj::print("This proc owns the simdb instance (apparently)");
+	  dbj::print("\n\nThis proc owns the simdb instance (apparently)");
   }
 
   auto  lf = "lock free";
-  auto way = "is the way to be";
-
-  db.put(lf, way);
+  db.put("lock free" , "is the way to be");
 
   auto val = db.get(lf);
 
   dbj::print("\n\n the Keys");
   auto keys = db.getKeyStrs();
   for (auto key : keys) {
-	  dbj::print("\n", key.str, " : ", db.get(key.str));
+	  dbj::print("\nKey:\t", key.str /*, " : ", db.get(key.str)*/ );
   }
 
   auto dbs = simdbj::list_databases();
