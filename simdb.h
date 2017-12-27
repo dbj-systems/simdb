@@ -32,6 +32,12 @@
 #define _SCL_SECURE_NO_WARNINGS
 #endif
 
+/*
+ using powerfull lightweight dbj++ headers only lib
+*/
+#define DBJ_WIN
+#include <dbj++.h>
+/*
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
 #define STRICT
@@ -42,6 +48,7 @@
 #include <string>
 #include <set>
 #include <algorithm>
+*/
 /* 
   DBJ: inlcudes found not to be needed
 #include <locale>
@@ -59,16 +66,17 @@
 
 namespace simdbj {
 
-// platform specific type definitions
-// #ifdef _WIN32                         
-// these have to be outside the anonymous namespace
-// dbj: why?
   typedef void        *HANDLE;
   typedef HANDLE     *PHANDLE;
   typedef wchar_t       WCHAR;        // wc,   16-bit UNICODE character
   typedef UCHAR       BOOLEAN;        // winnt
   typedef unsigned long ULONG;
-// #endif
+
+  /*
+  DBJ formed constand expressions
+  */
+  static constexpr char simdb_filename_prefix[]{ "simdb_" };
+
 
 namespace {
   enum Match { MATCH_FALSE=0, MATCH_TRUE=1, MATCH_REMOVED=-1  };
@@ -1160,6 +1168,9 @@ public:
   u32        prevIdx(u32 i) const { return std::min(i-1, m_sz-1); }        // clamp to m_sz-1 for the case that hash==0, which will result in an unsigned integer wrap
 
 };
+/*
+----------------------------------------------------------------------------------------
+*/
 struct  SharedMem final
 {
   using    u32  =  uint32_t;
@@ -1203,32 +1214,45 @@ public:
       }
     sm.clear();
   }
+  
   /*
   */
-  static SharedMem  AllocAnon(const char* name, u64 sizeBytes, bool raw_path=false, simdb_error* error_code=nullptr)
+  static SharedMem  
+	  AllocAnon(const char* name, 
+		  u64 sizeBytes, 
+		  bool raw_path = false, 
+		  simdb_error* simdb_error_pointer = nullptr)
   {
-    using namespace std;
+	  if (simdb_error_pointer) { *simdb_error_pointer = simdb_error::NO_ERRORS; }
+	SharedMem shared_mem_retval;
+    shared_mem_retval.hndlPtr  = nullptr;
+    shared_mem_retval.owner    = false;
+    shared_mem_retval.size     = sizeBytes;
+    shared_mem_retval.fileHndl = nullptr;
 
-    SharedMem sm;
-    sm.hndlPtr  = nullptr;
-    sm.owner    = false;
-    //sm.size     = alignment==0? sizeBytes  :  alignment-(sizeBytes%alignment);
-    sm.size     = sizeBytes;
-    if(error_code){ *error_code = simdb_error::NO_ERRORS; }
+	if(!raw_path){ 
+		auto retcode = strcpy_s(shared_mem_retval.path, SharedMem::PATH_SIZE, simdb_filename_prefix); 
+		_ASSERTE(retcode == 0);
+	}
 
-      sm.fileHndl = nullptr;
-      if(!raw_path){ strcpy_s(sm.path, SharedMem::PATH_SIZE, "simdb_"); }
+    /*
+	u64 len = strlen(shared_mem_retval.path) + strlen(name);
 
-    u64 len = strlen(sm.path) + strlen(name);
-    if(len > sizeof(sm.path)-1){
-      *error_code = simdb_error::PATH_TOO_LONG;
-      return move(sm);
-    }else{ strcat_s(sm.path, SharedMem::PATH_SIZE,  name); }
+	if(len > sizeof(shared_mem_retval.path)-1){
+      *simdb_error_pointer = simdb_error::PATH_TOO_LONG;
+      return std::move(shared_mem_retval);
+    }
+	else
+	*/
+	{ 
+		auto retcode = strcat_s(shared_mem_retval.path, SharedMem::PATH_SIZE,  name); 
+		_ASSERTE(retcode == 0);
+	}
 
       if(raw_path)
       {
-        sm.fileHndl = CreateFileA(
-          sm.path, 
+        shared_mem_retval.fileHndl = CreateFileA(
+          shared_mem_retval.path, 
           GENERIC_READ|GENERIC_WRITE,   //FILE_MAP_READ|FILE_MAP_WRITE,  // apparently FILE_MAP constants have no effects here
           FILE_SHARE_READ|FILE_SHARE_WRITE, 
           NULL,
@@ -1237,29 +1261,29 @@ public:
           NULL                          //_In_opt_ HANDLE hTemplateFile
         );
       }
-      sm.fileHndl = OpenFileMappingA(FILE_MAP_READ | FILE_MAP_WRITE, FALSE, sm.path);
+      shared_mem_retval.fileHndl = OpenFileMappingA(FILE_MAP_READ | FILE_MAP_WRITE, FALSE, shared_mem_retval.path);
 
-      if(sm.fileHndl==NULL)
+      if(shared_mem_retval.fileHndl==NULL)
       {
-        sm.fileHndl = CreateFileMappingA(  // todo: simplify and call this right away, it will open the section if it already exists
+        shared_mem_retval.fileHndl = CreateFileMappingA(  // todo: simplify and call this right away, it will open the section if it already exists
           INVALID_HANDLE_VALUE,
           NULL,
           PAGE_READWRITE,
           0,
           (DWORD)sizeBytes,
-          sm.path);
-        if(sm.fileHndl!=NULL){ sm.owner=true; }
+          shared_mem_retval.path);
+        if(shared_mem_retval.fileHndl!=NULL){ shared_mem_retval.owner=true; }
       }
       
-      if(sm.fileHndl != nullptr){
-        sm.hndlPtr = MapViewOfFile(sm.fileHndl,   // handle to map object
+      if(shared_mem_retval.fileHndl != nullptr){
+        shared_mem_retval.hndlPtr = MapViewOfFile(shared_mem_retval.fileHndl,   // handle to map object
           FILE_MAP_READ | FILE_MAP_WRITE, // FILE_MAP_ALL_ACCESS,   // read/write permission
           0,
           0,
           0);
       }
 
-      if(sm.hndlPtr==nullptr){ 
+      if(shared_mem_retval.hndlPtr==nullptr){ 
         int      err = (int)GetLastError();
         LPSTR msgBuf = nullptr;
         /*size_t msgSz =*/ FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
@@ -1267,18 +1291,18 @@ public:
         win_printf("simdb initialization error: %d - %s", err, msgBuf);
         LocalFree(msgBuf);
 
-        CloseHandle(sm.fileHndl); 
-        sm.clear(); 
-        return move(sm); 
+        CloseHandle(shared_mem_retval.fileHndl); 
+        shared_mem_retval.clear(); 
+        return std::move(shared_mem_retval); 
       }
        
   
-    u64     addr = (u64)(sm.hndlPtr);
+    u64     addr = (u64)(shared_mem_retval.hndlPtr);
     u64		alignAddr = addr;
     //if(alignment!=0){ alignAddr = addr + ((alignment-addr%alignment)%alignment); }          // why was the second modulo needed?
-    sm.ptr        = (void*)(alignAddr);
+    shared_mem_retval.ptr        = (void*)(alignAddr);
 
-    return move(sm);
+    return move(shared_mem_retval);
   }
 
   SharedMem(){}

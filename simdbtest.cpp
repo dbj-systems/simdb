@@ -73,6 +73,9 @@ int main()
   auto dbs = simdbj::list_databases();
 		dbj::print("\n\n db list: ", dbs );
 
+		db.flush();
+		db.close();
+
 		dbj::log.flush();
   return 0;
 }

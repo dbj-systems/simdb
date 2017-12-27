@@ -12,5 +12,12 @@
     <None Include="SIMDB.md">
       <Filter>md</Filter>
     </None>
+    <None Include="LICENSE" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="simdbtest.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="simdb.h" />
   </ItemGroup>
 </Project>
