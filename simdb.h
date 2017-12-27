@@ -1624,9 +1624,9 @@ public:
 };
 
 /* 
-  only Windows simdb_listDBs()  
+  only Windows list_databases()  
 */
-  auto simdb_listDBs(simdb_error* error_code=nullptr) 
+  auto list_databases(simdb_error* error_code=nullptr) 
 	  -> std::vector<std::string>
   {
     using namespace std;
@@ -1637,7 +1637,7 @@ public:
     static NTQUERYDIRECTORYOBJECT NtQueryDirectoryObject = nullptr;
     static RTLINITUNICODESTRING   RtlInitUnicodeString   = nullptr;
     
-    vector<string> ret;
+    vector<string> return_vector;
 
     if(!NtOpenDirectoryObject){  
       NtOpenDirectoryObject  = (NTOPENDIRECTORYOBJECT)GetLibraryProcAddress( 
@@ -1664,18 +1664,20 @@ public:
 
     wstring     sesspth = L"\\Sessions\\" + to_wstring(sessionId) + L"\\BaseNamedObjects";
     const WCHAR* mempth = sesspth.data();
+
+	return_vector.push_back(std::string(sesspth.begin(), sesspth.end()));
     
     WCHAR buf[4096];
-    UNICODE_STRING pth = { 0 };
-    pth.Buffer         = (WCHAR*)mempth;
-    pth.Length         = (USHORT)lstrlenW(mempth) * sizeof(WCHAR);
-    pth.MaximumLength  = pth.Length;
+    UNICODE_STRING path = { 0 };
+    path.Buffer         = (WCHAR*)mempth;
+    path.Length         = (USHORT)lstrlenW(mempth) * sizeof(WCHAR);
+    path.MaximumLength  = path.Length;
 
     OBJECT_ATTRIBUTES oa = { 0 };
     oa.Length             = sizeof( OBJECT_ATTRIBUTES );
     oa.RootDirectory      = NULL;
     oa.Attributes         = OBJ_CASE_INSENSITIVE;                               
-    oa.ObjectName         = &pth;
+    oa.ObjectName         = &path;
     oa.SecurityDescriptor = NULL;                        
     oa.SecurityQualityOfService = NULL;
 
@@ -1685,7 +1687,7 @@ public:
       /*STANDARD_RIGHTS_READ |*/ DIRECTORY_QUERY, 
       &oa);
 
-    if(hDir==NULL || status!=STATUS_SUCCESS){ return { "Could not open file" }; }
+    if(hDir==NULL || status!=STATUS_SUCCESS){ return { "Could not open directory object!" }; }
 
     BOOLEAN rescan = TRUE;
     ULONG      ctx = 0;
@@ -1701,15 +1703,15 @@ public:
       size_t  pfxSz   = sizeof(wPrefix);
       if( strncmp( (char*)info->name.Buffer, (char*)wPrefix, pfxSz)!=0 ){  continue; }
 
-      wstring  wname = wstring( ((WCHAR*)info->name.Buffer)+6 );
+      wstring  wname = wstring( ((WCHAR*)info->name.Buffer) /* +6 */ );
       // wstring_convert<codecvt_utf8<wchar_t>> cnvrtr;
 	  // cnvrtr.to_bytes(wname);
 	  string    name = std::string( wname.begin(), wname.end()); 
 
-      ret.push_back(name);
+      return_vector.push_back(name);
     }while(status!=STATUS_NO_MORE_ENTRIES);
     
-    return ret;
+    return return_vector;
   }
 } // eof namespace setdbj 
 
