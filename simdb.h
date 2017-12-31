@@ -80,13 +80,13 @@ namespace simdbj {
   
 namespace {
   enum Match { MATCH_FALSE=0, MATCH_TRUE=1, MATCH_REMOVED=-1  };
-
+/*
   template<class T>
   class lava_noop
   {
     void operator()(){}
   };
-
+*/
   // sbassett - I know basically nothing about hash functions and there is 
   // likely a better one out there 
   inline uint64_t fnv_64a_buf(void const *const buf, uint64_t len)
@@ -343,7 +343,8 @@ public:
     }
   }
 
-  u32        nxt()                                                             // moves forward in the list and return the previous index
+  u32       
+	  nxt()                                                             // moves forward in the list and return the previous index
   {
     Head  curHead, nxtHead;
     curHead.asInt  =  s_h->load();
@@ -356,7 +357,8 @@ public:
 
     return curHead.idx;
   }
-  u32        free(u32 idx)                                                    // not thread safe when reading from the list, but it doesn't matter because you shouldn't be reading while freeing anyway, since the CncrHsh will already have the index taken out and the free will only be triggered after the last reader has read from it 
+  u32        
+	  free(u32 idx)                                                    // not thread safe when reading from the list, but it doesn't matter because you shouldn't be reading while freeing anyway, since the CncrHsh will already have the index taken out and the free will only be triggered after the last reader has read from it 
   {
     Head curHead, nxtHead; u32 retIdx;
     curHead.asInt = s_h->load();
@@ -368,7 +370,8 @@ public:
 
     return retIdx;
   }
-  u32        free(u32 st, u32 en)                                            // not thread safe when reading from the list, but it doesn't matter because you shouldn't be reading while freeing anyway, since the CncrHsh will already have the index taken out and the free will only be triggered after the last reader has read from it 
+  u32        
+	  free(u32 st, u32 en)                                            // not thread safe when reading from the list, but it doesn't matter because you shouldn't be reading while freeing anyway, since the CncrHsh will already have the index taken out and the free will only be triggered after the last reader has read from it 
   {
     Head curHead, nxtHead; u32 retIdx;
     curHead.asInt = s_h->load();
@@ -456,20 +459,23 @@ public:
 
   static const u32 LIST_END = CncrLst::LIST_END;
 
-  static VerIdx      List_End()
+  static VerIdx      
+	  List_End()
   { 
     VerIdx vi; 
     vi.idx     = CncrLst::LIST_END; 
     vi.version = 0; 
     return vi; 
   }
-  static bool       IsListEnd(VerIdx vi)
+  static bool       
+	  IsListEnd(VerIdx vi)
   {
     static const VerIdx empty = List_End();
     return empty.asInt == vi.asInt;
   }
 
-  BlkLst    incReaders(u32 blkIdx, u32 version) const                                  // BI is Block Index  increment the readers by one and return the previous kv from the successful swap 
+  BlkLst    
+	  incReaders(u32 blkIdx, u32 version) const                                  // BI is Block Index  increment the readers by one and return the previous kv from the successful swap 
   {
     KeyReaders cur, nxt;
     BlkLst*     bl  =  &s_bls[blkIdx];
@@ -520,7 +526,8 @@ private:
   u32                m_blockSize;
   u64                  m_szBytes;
 
-  VerIdx       nxtBlock(u32  blkIdx)  const
+  VerIdx       
+	  nxtBlock(u32  blkIdx)  const
   {
     BlkLst bl  = s_bls[blkIdx];
     prefetch1( (char const* const)blockFreePtr(bl.idx) );
@@ -550,12 +557,14 @@ private:
 
     return prev;
   }
-  void           doFree(u32  blkIdx)  const                                                // frees a list/chain of blocks - don't need to zero out the memory of the blocks or reset any of the BlkLsts' variables since they will be re-initialized anyway
+  void           
+	  doFree(u32  blkIdx)  const                                                // frees a list/chain of blocks - don't need to zero out the memory of the blocks or reset any of the BlkLsts' variables since they will be re-initialized anyway
   {
     u32 listEnd  =  findEndSetVersion(blkIdx, 0); 
     s_cl.free(blkIdx, listEnd);
   }
-  u32        writeBlock(u32  blkIdx, void const* const bytes, u32 len=0, u32 ofst=0)       // don't need to increment readers since write should be done before the block is exposed to any other threads
+  u32        
+	  writeBlock(u32  blkIdx, void const* const bytes, u32 len=0, u32 ofst=0)       // don't need to increment readers since write should be done before the block is exposed to any other threads
   {
     u32  blkFree  =  blockFreeSize();
     u8*        p  =  blockFreePtr(blkIdx);
@@ -565,7 +574,8 @@ private:
 
     return cpyLen;
   }
-  u32         readBlock(u32  blkIdx, u32 version, void *const bytes, u32 ofst=0, u32 len=0) const
+  u32         
+	  readBlock(u32  blkIdx, u32 version, void *const bytes, u32 ofst=0, u32 len=0) const
   {
     BlkLst bl = incReaders(blkIdx, version);               if(bl.version==0){ return 0; }
       u32   blkFree  =  blockFreeSize();
@@ -599,7 +609,8 @@ public:
     _ASSERTE(blockSize > sizeof(i32));
   }
 
-  auto        alloc(u32    size, u32 klen, u32 hash, BlkCnt* out_blocks=nullptr) -> VerIdx    
+  auto        
+	  alloc(u32    size, u32 klen, u32 hash, BlkCnt* out_blocks=nullptr) -> VerIdx    
   {
     u32  byteRem = 0;
     u32   blocks = blocksNeeded(size, &byteRem);
@@ -650,11 +661,13 @@ public:
       return vi;
     }
   }
-  bool         free(u32  blkIdx, u32 version)                                                             // doesn't always free a list/chain of blocks - it decrements the readers and when the readers gets below the value that it started at, only then it is deleted (by the first thread to take it below the starting number)
+  bool         
+	  free(u32  blkIdx, u32 version)                                                             // doesn't always free a list/chain of blocks - it decrements the readers and when the readers gets below the value that it started at, only then it is deleted (by the first thread to take it below the starting number)
   {
     return decReadersOrDel(blkIdx, version, true);
   }
-  void          put(u32  blkIdx, void const *const kbytes, u32 klen, void const *const vbytes, u32 vlen)  // don't need version because this will only be used after allocating and therefore will only be seen by one thread until it is inserted into the ConcurrentHash
+  void          
+	  put(u32  blkIdx, void const *const kbytes, u32 klen, void const *const vbytes, u32 vlen)  // don't need version because this will only be used after allocating and therefore will only be seen by one thread until it is inserted into the ConcurrentHash
   {
     using namespace std;
     
@@ -688,7 +701,8 @@ public:
       b   +=  writeBlock(cur, b, remvlen);
     }
   }
-  u32           get(u32  blkIdx, u32 version, void *const bytes, u32 maxlen, u32* out_readlen=nullptr) const
+  u32           
+	  get(u32  blkIdx, u32 version, void *const bytes, u32 maxlen, u32* out_readlen=nullptr) const
   {
     using namespace std;
 
@@ -736,7 +750,8 @@ public:
 
     return len;                                                                    // only one return after the top to make sure readers can be decremented - maybe it should be wrapped in a struct with a destructor
   }
-  u32        getKey(u32  blkIdx, u32 version, void *const bytes, u32 maxlen) const
+  u32        
+	  getKey(u32  blkIdx, u32 version, void *const bytes, u32 maxlen) const
   {
     if(blkIdx == LIST_END){ return 0; }
 
@@ -784,7 +799,8 @@ public:
     return MATCH_FALSE;
   }
 
-  Match     compare(u32  blkIdx, u32 version, void const *const buf, u32 len, u32 hash) const
+  Match
+	  compare(u32  blkIdx, u32 version, void const *const buf, u32 len, u32 hash) const
   {
     using namespace std;
     
@@ -813,7 +829,8 @@ public:
       nxt      =  nxtBlock(curidx);                                 if(nxt.version!=version){ return MATCH_FALSE; }
     }
   }
-  u32           len(u32  blkIdx, u32 version, u32* out_vlen=nullptr) const
+  u32 
+	  len(u32  blkIdx, u32 version, u32* out_vlen=nullptr) const
   {
     BlkLst bl = s_bls[blkIdx];
     if(version==bl.version && bl.len>0){
@@ -850,12 +867,14 @@ public:
   static const u32  LIST_END         =   CncrStr::LIST_END;
   static const u32  SLOT_END         =   CncrStr::LIST_END;
 
-  static u64           sizeBytes(u32 size)                   // the size in bytes that this structure will take up in the shared memory
+  static u64
+	  sizeBytes(u32 size)                   // the size in bytes that this structure will take up in the shared memory
   {
     return lava_vec<VerIdx>::sizeBytes(size) + 16;           // extra 16 bytes for 128 bit alignment padding 
   }
 
-  static u32        nextPowerOf2(u32  v)
+  static u32
+	  nextPowerOf2(u32  v)
   {
     v--;
     v |= v >> 1;
@@ -1077,8 +1096,10 @@ public:
     
     return true;
   }
-  VerIdx          at(u32   idx)                const { return load(idx); }
-  u32            nxt(u32 stIdx)                const
+  VerIdx 
+	  at(u32   idx)const { return load(idx); }
+  u32 
+	  nxt(u32 stIdx)  const
   {
     auto     idx = stIdx;
     VerIdx empty = empty_vi();
@@ -1093,10 +1114,14 @@ public:
 
     return  idx;
   }
-  u32           size()                         const { return m_sz; }
-  auto          data()                         const -> void* { return s_vis.data(); }
-  u64      sizeBytes()                         const { return s_vis.sizeBytes(); }
-  i64            len(const void *const key, u32 klen, u32* out_vlen=nullptr, u32* out_version=nullptr) const
+  u32           
+	  size() const { return m_sz; }
+  auto          
+	  data()const -> void* { return s_vis.data(); }
+  u64      
+	  sizeBytes() const { return s_vis.sizeBytes(); }
+  i64            
+	  len(const void *const key, u32 klen, u32* out_vlen=nullptr, u32* out_version=nullptr) const
   {
     if(klen<1){return 0;}
 
@@ -1115,7 +1140,8 @@ public:
       if(i==en){ return 0ull; }
     }
   }
-  bool           get(const void *const key, u32 klen, void *const out_val, u32 vlen, u32* out_readlen=nullptr) const
+  bool           
+	  get(const void *const key, u32 klen, void *const out_val, u32 vlen, u32* out_readlen=nullptr) const
   {
     if(klen<1){ return 0; }
 
@@ -1127,7 +1153,8 @@ public:
 
     return runMatch(key, klen, hash, runFunc);
   }
-  bool           put(const void *const key, u32 klen, const void *const val, u32 vlen, u32* out_startBlock=nullptr) 
+  bool           
+	  put(const void *const key, u32 klen, const void *const val, u32 vlen, u32* out_startBlock=nullptr) 
   {
     _ASSERTE(klen>0);
 
@@ -1145,7 +1172,8 @@ public:
 
     return true;
   }
-  bool           del(const void *const key, u32 klen)
+  bool          
+	  del(const void *const key, u32 klen)
   {
     auto     hash = CncrHsh::HashBytes(key, klen);
     VerIdx     vi = delHashed(key, klen, hash);
@@ -1204,7 +1232,8 @@ struct  SharedMem final
   }
 
 public:
-  static void        FreeAnon(SharedMem& sm)
+  static void        
+	  FreeAnon(SharedMem& sm)
   {
       if(sm.hndlPtr){
         UnmapViewOfFile(sm.hndlPtr);
@@ -1416,8 +1445,8 @@ private:
     m_isOpen    =  rval.m_isOpen;    
   }
 
+  simdb() {} // hidden by DBJ
 public:
-  simdb(){}
   simdb(const char* name, u32 blockSize, u32 blockCount, bool raw_path=false) : 
     m_nxtChIdx(0),
     m_curChIdx(0),
@@ -1472,21 +1501,26 @@ public:
   simdb(simdb&& rval){ mv(std::move(rval)); }
   simdb& operator=(simdb&& rval){ mv(std::move(rval)); return *this; }
 
-  i64          len(const void *const key, u32 klen, u32* out_vlen=nullptr, u32* out_version=nullptr) const
+  i64          
+	  len(const void *const key, u32 klen, u32* out_vlen=nullptr, u32* out_version=nullptr) const
   {
     return s_ch.len(key, klen, out_vlen, out_version);
   }
-  bool         get(const void *const key, u32 klen, void *const   out_val, u32 vlen, u32* out_readlen=nullptr) const
+  bool         
+	  get(const void *const key, u32 klen, void *const   out_val, u32 vlen, u32* out_readlen=nullptr) const
   {
     return s_ch.get(key, klen, out_val, vlen, out_readlen);
   }
-  bool         put(const void *const key, u32 klen, const void *const val, u32 vlen, u32* out_startBlock=nullptr)
+  bool         
+	  put(const void *const key, u32 klen, const void *const val, u32 vlen, u32* out_startBlock=nullptr)
   {
     return s_ch.put(key, klen, val, vlen, out_startBlock);
   }
-  bool         del(const void *const key, u32 klen){ return s_ch.del(key, klen); }
+  bool         
+	  del(const void *const key, u32 klen){ return s_ch.del(key, klen); }
 
-  i64          len(u32 idx, u32 version, u32* out_klen=nullptr, u32* out_vlen=nullptr) const
+  i64          
+	  len(u32 idx, u32 version, u32* out_klen=nullptr, u32* out_vlen=nullptr) const
   { 
     VerIdx vi = s_ch.load(idx);
     if(vi.idx>=DELETED || vi.version!=version){return 0;}
@@ -1497,21 +1531,25 @@ public:
     }
     return 0;
   }
-  bool         get(char const* const key, void* val, u32 vlen) const
+  bool         
+	  get(char const* const key, void* val, u32 vlen) const
   {
     return get(key, (u32)strlen(key), val, vlen);
   }
-  bool         put(char const* const key, const void *const val, u32 vlen, u32* out_startBlock=nullptr)
+  bool         
+	  put(char const* const key, const void *const val, u32 vlen, u32* out_startBlock=nullptr)
   {
     _ASSERTE(strlen(key)>0);
     return put(key, (u32)strlen(key), val, vlen, out_startBlock);
   }
 
-  void       flush() const
+  void       
+	  flush() const
   {
       FlushViewOfFile(m_mem.hndlPtr, m_mem.size);
   }
-  VerIdx       nxt() const                                                                  // this version index represents a hash index, not an block storage index
+  VerIdx       
+	  nxt() const  // this version index represents a hash index, not an block storage index
   {    
     VerIdx ret = s_ch.empty_vi();
     u32  chNxt = s_ch.nxt(m_nxtChIdx);
@@ -1524,60 +1562,79 @@ public:
     
     return ret;
   }
-  bool      getKey(u32 idx, u32 version, void *const out_buf, u32 klen) const
+  bool      
+	  getKey(u32 idx, u32 version, void *const out_buf, u32 klen) const
   {
     if(klen<1) return false;
 
     VerIdx vi = s_ch.load(idx);  
-    if(vi.idx >= CncrHsh::DELETED || vi.version!=version){return false;}
-    u32 l = s_cs.getKey(vi.idx, vi.version, out_buf, klen);                               // l is length
-    if(l<1){return false;}
+    if(vi.idx >= CncrHsh::DELETED || vi.version!=version) {
+		return false;
+	}
+    u32 length = s_cs.getKey(vi.idx, vi.version, out_buf, klen); 
+    if(length < 1){return false;}
 
     return true;
   }
   u32          cur() const { return m_curChIdx; }
-  auto        data() const -> const void* const { return s_cs.data(); }                   // return a pointer to the start of the block data
+  auto        data() const -> const void* const { return s_cs.data(); }                   
+  // above return a pointer to the start of the block data
   u64         size() const { return CncrStr::sizeBytes( (u32)s_blockSize->load(), (u32)s_blockCount->load()); }
   bool     isOwner() const { return m_mem.owner; }
-  u64       blocks() const { return s_blockCount->load(); }                               // return the total number of blocks the shared memory
+  u64       blocks() const { return s_blockCount->load(); }                               
+  // above return the total number of blocks the shared memory
   u64    blockSize() const { return s_blockSize->load();  }
-  auto         mem() const -> void* { return m_mem.hndlPtr; }                             // returns a pointer to the start of the shared memory, which will contain the data structures first
+  auto         mem() const -> void* { return m_mem.hndlPtr; }                             
+  // above returns a pointer to the start of the shared memory, 
+  // which will contain the data structures first
   u64      memsize() const { return m_mem.size; }
   auto    hashData() const -> void const* const { return s_ch.data(); }
   bool       close()
   {
     if(m_isOpen){
       m_isOpen = false;
-      u64 prev = s_flags->fetch_sub(1);                                                   // prev is previous flags value - the number of simdb instances across process that had the shared memory file open
-      if(prev==1){                                                                        // if the previous value was 1, that means the value is now 0, and we are the last one to stop using the file, which also means we need to be the one to clean it up
-        SharedMem::FreeAnon(m_mem);                                                       // close and delete the shared memory - this is done automatically on windows when all processes are no longer accessing a shared memory file
+      u64 prev = s_flags->fetch_sub(1); 
+// prev is previous flags value - the number of simdb instances across process that had the 
+// shared memory file open
+      if(prev==1){                      
+// if the previous value was 1, that means the value is now 0, and we are the last one 
+// to stop using the file, which also means we need to be the one to clean it up
+        SharedMem::FreeAnon(m_mem);     
+// close and delete the shared memory - this is done automatically on windows when 
+// all processes are no longer accessing a shared memory file
         return true;
       }
     }
     return false;
   }
-  auto       error() const -> simdb_error
+  auto       
+	  error() const -> simdb_error
   {
     return m_error;
   }
 
-  // separated C++ functions - these won't need to exist if compiled for a C interface
+  #pragma region "separated C++ functions - these won't need to exist if compiled for a C interface"
+
   struct VerStr { 
-    u32 ver; string str; 
+    u32 ver; 
+	string str; 
     bool  operator<(VerStr const& vs) const { return str<vs.str; }
     bool  operator<(string const& rs) const { return str<rs;     }
     bool operator==(VerStr const& vs) const { return str==vs.str && ver==vs.ver; } 
   };   
 
-  i64          len(str    const& key, u32* out_vlen=nullptr, u32* out_version=nullptr) const
+  i64          
+	  len(str    const& key, u32* out_vlen=nullptr, u32* out_version=nullptr) const
   {
     return len( (void*)key.data(), (u32)key.length(), out_vlen, out_version);
   }
-  i64          put(str    const& key, str const& value)
+  i64          
+	  put(str    const& key, str const& value)
   {
     return put(key.data(), (u32)key.length(), value.data(), (u32)value.length());
   }
-  bool         get(str    const& key, str*   out_value) const
+  bool         
+	  get(str    const& key, str*   out_value) const
   {
     u32    vlen = 0;
     len(key.data(), (u32)key.length(), &vlen);
@@ -1586,13 +1643,15 @@ public:
 
     return ok;
   }
-  auto         get(str    const& key)                   const -> std::string
+  auto         
+	  get(str    const& key)                   const -> std::string
   {
     str ret;
     if(this->get(key, &ret)) return ret;
     else return str("");
   }
-  VerStr    nxtKey(u64* searched=nullptr)               const
+  VerStr    
+	  nxtKey(u64* searched=nullptr)               const
   {
     u32 klen, vlen;
     bool      ok = false;
@@ -1618,7 +1677,8 @@ public:
 
     return { viNxt.version, key };                    // copy elision 
   }
-  auto  getKeyStrs() const -> std::vector<VerStr>
+  auto  
+	  getKeyStrs() const -> std::vector<VerStr>
   {
     using namespace std;
     
@@ -1633,27 +1693,32 @@ public:
 
     return vector<VerStr>(keys.begin(), keys.end());
   }
-  bool         del(str const& key)
+  bool         
+	  del(str const& key)
   {
     return this->del( (void const* const)key.data(), (u32)key.length() );
   }
 
   template<class T>
-  auto         get(str const& key) -> std::vector<T>
+  auto         
+	  get(str const& key) -> std::vector<T>
   {
     u32 vlen = 0;
     len(key.data(), (u32)key.length(), &vlen);
     std::vector<T> ret(vlen);    
     return get(key.data(), (u32)key.length(), (void*)ret.data(), vlen);
   }
+
   template<class T>
-  i64          put(str    const& key, std::vector<T> const& val)
+  i64          
+	  put(str    const& key, std::vector<T> const& val)
   {    
     return put(key.data(), (u32)key.length(), val.data(), (u32)(val.size()*sizeof(T)) );
   }
-  // end separated C++ functions
 
-};
+#pragma endregion 
+
+}; // eof class simdb
 
 /* 
   only Windows list_databases()  
@@ -1661,32 +1726,25 @@ public:
   auto list_databases(simdb_error* error_code=nullptr) 
 	  -> std::vector<std::string>
   {
-    using namespace std;
-
     static HMODULE                _hModule               = nullptr; 
-    static NTOPENDIRECTORYOBJECT  NtOpenDirectoryObject  = nullptr;
-    static NTOPENFILE             NtOpenFile             = nullptr;
-    static NTQUERYDIRECTORYOBJECT NtQueryDirectoryObject = nullptr;
-    static RTLINITUNICODESTRING   RtlInitUnicodeString   = nullptr;
     
-    vector<string> return_vector;
+    std::vector<std::string> return_vector;
 
-    if(!NtOpenDirectoryObject){  
-      NtOpenDirectoryObject  = (NTOPENDIRECTORYOBJECT)GetLibraryProcAddress( 
+	static NTOPENDIRECTORYOBJECT  NtOpenDirectoryObject  = 
+		(NTOPENDIRECTORYOBJECT)GetLibraryProcAddress(
 		  (PSTR)("ntdll.dll"), 
 		  (PSTR)("NtOpenDirectoryObject")
 	  );
-    }
-    if(!NtQueryDirectoryObject){ 
-      NtQueryDirectoryObject = (NTQUERYDIRECTORYOBJECT)GetLibraryProcAddress(
+
+	static NTQUERYDIRECTORYOBJECT NtQueryDirectoryObject = 
+			(NTQUERYDIRECTORYOBJECT)GetLibraryProcAddress(
 		  (PSTR)("ntdll.dll"),
 		  (PSTR)"NtQueryDirectoryObject");
-    }
-    if(!NtOpenFile){ 
-      NtOpenFile = (NTOPENFILE)GetLibraryProcAddress(
+
+	static NTOPENFILE  NtOpenFile = 
+			(NTOPENFILE)GetLibraryProcAddress(
 		  (PSTR)("ntdll.dll"), 
 		  (PSTR)"NtOpenFile");
-    }
 
     HANDLE     hDir = NULL;
     IO_STATUS_BLOCK  isb = { 0 };
@@ -1694,9 +1752,8 @@ public:
     BOOL         ok = ProcessIdToSessionId(GetCurrentProcessId(), &sessionId);
     if(!ok){ return { "Could not get current session" }; }
 
-    wstring     sesspth = L"\\Sessions\\" + to_wstring(sessionId) + L"\\BaseNamedObjects";
+    std::wstring     sesspth = L"\\Sessions\\" + std::to_wstring(sessionId) + L"\\BaseNamedObjects";
     const WCHAR* mempth = sesspth.data();
-
 	return_vector.push_back(std::string(sesspth.begin(), sesspth.end()));
     
     WCHAR buf[4096];
@@ -1713,8 +1770,7 @@ public:
     oa.SecurityDescriptor = NULL;                        
     oa.SecurityQualityOfService = NULL;
 
-    NTSTATUS status;
-    status = NtOpenDirectoryObject(
+    NTSTATUS status = NtOpenDirectoryObject(
       &hDir, 
       /*STANDARD_RIGHTS_READ |*/ DIRECTORY_QUERY, 
       &oa);
@@ -1735,13 +1791,11 @@ public:
       size_t  pfxSz   = sizeof(wPrefix);
       if( strncmp( (char*)info->name.Buffer, (char*)wPrefix, pfxSz)!=0 ){  continue; }
 
-      wstring  wname = wstring( ((WCHAR*)info->name.Buffer) /* +6 */ );
-      // wstring_convert<codecvt_utf8<wchar_t>> cnvrtr;
-	  // cnvrtr.to_bytes(wname);
-	  string    name = std::string( wname.begin(), wname.end()); 
+      std::wstring  wname = std::wstring( ((WCHAR*)info->name.Buffer) /* +6 */ );
 
-      return_vector.push_back(name);
-    }while(status!=STATUS_NO_MORE_ENTRIES);
+      return_vector.push_back(std::string(wname.begin(), wname.end()));
+
+    } while( status!=STATUS_NO_MORE_ENTRIES );
     
     return return_vector;
   }
