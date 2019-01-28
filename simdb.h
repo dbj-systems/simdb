@@ -36,20 +36,14 @@ dbj removed 27DEC17
 /*
  using powerfull lightweight dbj++ headers only lib
 */
-#define DBJ_WIN
-#include <dbj++.h>
-#include <atomic>
-#include <set>
-/*
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#define STRICT
-#include <windows.h>
 #include <crtdbg.h>
 #include <vector>
 #include <string>
 #include <algorithm>
-*/
+#include <atomic>
+#include <set>
+#include <dbj++.h>
+/* */
 /* 
   DBJ: inlcudes found not to be needed
 #include <locale>
@@ -1317,14 +1311,14 @@ public:
           0,
           0);
 
-		dbj::trace("\nCreated and Opened File Mapping for path %s", shared_mem_retval.path);
+		dbj::TRACE ("\nCreated and Opened File Mapping for path %s", shared_mem_retval.path);
 	  }
 	  else
       // if(shared_mem_retval.hndlPtr==nullptr)
 	  { 
-		  auto err_msg_ = dbj::win32::getLastErrorMessage("SIMDBJ initialization error:" ); 
-		  dbj::trace("%s", err_msg_);
-		  dbj::print("\n", err_msg_);
+		  auto err_msg_ = dbj::win32::get_last_error_message("SIMDBJ initialization error:" ); 
+		  dbj::TRACE("%s", err_msg_);
+		  dbj::console::print("\n", err_msg_);
 
 		  auto close_handle_result = CloseHandle(shared_mem_retval.fileHndl);
 		  _ASSERTE(close_handle_result);
